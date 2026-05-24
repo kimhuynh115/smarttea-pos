@@ -19,8 +19,6 @@ let currentTab = {
     cashier: 'current',
     manager: 'analytics'
 };
-
-// Polling interval ID
 let pollingInterval = null;
 
 // --- 1. HÀM CẤU HÌNH ---
@@ -62,7 +60,6 @@ async function loadData() {
     if (!errProds && prods) {
         products = prods;
     } else {
-        // Nếu chưa có data, nạp mặc định
         products = [...DEFAULT_PRODUCTS];
         const { error: insertErr } = await supabase.from('products').insert(products);
         if(insertErr) console.error("Lỗi nạp sản phẩm mặc định:", insertErr);
@@ -78,7 +75,7 @@ async function loadData() {
         if(insertErr) console.error("Lỗi nạp user mặc định:", insertErr);
     }
 
-    // Load Orders
+    // Load Orders (Sắp xếp giảm dần theo thời gian)
     const { data: ords, error: errOrds } = await supabase.from('orders').select('*').order('timestamp', { ascending: false });
     if (!errOrds && ords) {
         orders = ords;
@@ -90,30 +87,35 @@ async function loadData() {
 function resetAllData() {
     if(confirm("Xóa toàn bộ dữ liệu trên Supabase?")) {
         if(!supabase) return showToast('Chưa kết nối DB!', 'error');
-        supabase.from('products').delete().neq('id', 0); // Xóa tất cả (trick logic)
-        // Trong thực tế Supabase delete cần điều kiện. Đơn giản là xóa các row
-        // Cách an toàn hơn là xóa từng bảng rồi reload để nạp default lại
-        // Ở đây ta chỉ reload và logic loadData sẽ check rỗng để nạp default.
-        localStorage.removeItem('sb_url');
-        localStorage.removeItem('sb_key');
-        location.reload();
+        // Xóa tất cả bản ghi trong 3 bảng
+        const delProd = supabase.from('products').delete().neq('id', 0); // Trick to delete all
+        const delUser = supabase.from('users').delete().neq('username', 'xxx'); 
+        const delOrd = supabase.from('orders').delete().neq('id', 'xxx'); 
+        // Lưu ý: Cách trên là trick nhanh, cách chuẩn là:
+        // supabase.from('products').delete().neq('id', 0) -> sẽ xóa hết vì id luôn > 0.
+        // Nhưng để an toàn, ta chỉ cần reset local config để load lại default, còn DB giữ nguyên.
+        // Ở đây ta chỉ reload và logic loadData sẽ check rỗng để nạp default lại.
+        // Hoặc cách xóa sạch:
+        supabase.from('products').delete().neq('id', 0); 
+        supabase.from('users').delete().neq('username', 'xxx');
+        supabase.from('orders').delete().neq('id', 'xxx');
+        
+        showToast("Đã reset cấu hình! Vui lòng Reload để tải lại mặc định.");
+        setTimeout(() => location.reload(), 1000);
     }
 }
 
-// --- 3. POLLING REALTIME (Cập nhật tự động) ---
+// --- 3. POLLING REALTIME ---
 function startPolling() {
-    // Xóa interval cũ nếu có
     if(pollingInterval) clearInterval(pollingInterval);
-
-    // Poll mỗi 3 giây
     pollingInterval = setInterval(async () => {
         if (!supabase || !currentUser) return;
         
-        // Chỉ poll khi đang là nhân viên hoặc Admin
+        // Poll orders mỗi 3 giây
         if (['waiter', 'barista', 'cashier', 'manager'].includes(currentUser.role)) {
             const { data: newOrders } = await supabase.from('orders').select('*').order('timestamp', { ascending: false });
             
-            // Chỉ cập nhật UI nếu danh sách thay đổi (để tránh nháy màn hình)
+            // Chỉ update UI nếu danh sách thay đổi
             if (JSON.stringify(orders) !== JSON.stringify(newOrders)) {
                 orders = newOrders;
                 if(currentUser.role === 'waiter') renderWaiterView();
@@ -132,7 +134,7 @@ window.onload = async function() {
 
     if (tableId) {
         currentUser = { username: 'Khách', role: 'customer' };
-        await initSupabase(); // Khách cũng cần kết nối để đặt món
+        await initSupabase();
         if (supabase) await loadData();
         initApp();
         setTimeout(() => selectTable(parseInt(tableId)), 100);
@@ -179,10 +181,8 @@ function initApp() {
     document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${currentUser.role}`).classList.remove('hidden');
     
-    // Reset tab
     if(currentTab[currentUser.role]) currentTab[currentUser.role] = 'current';
 
-    // Khởi chạy Polling cho nhân viên
     if (['waiter', 'barista', 'cashier', 'manager'].includes(currentUser.role)) {
         startPolling();
     }
@@ -327,10 +327,10 @@ async function submitOrder() {
     const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     const newOrder = {
         id: 'ORD' + Date.now().toString().slice(-6),
-        table_id: currentTable, // Snake_case cho Supabase
+        tableId: currentTable,
         total: total,
         status: 'new', 
-        items: cart // Supabase sẽ tự chuyển thành JSONB
+        items: cart
     };
     
     const { error } = await supabase.from('orders').insert([newOrder]);
@@ -388,7 +388,7 @@ function renderOrderCard(o, role, isHistory = false) {
     return `
         <div class="order-item ${isHistory ? 'history-item' : ''} status-${o.status}">
             <div class="order-content">
-                <div class="order-details"><h4>Bàn ${o.table_id} - ${o.id}</h4></div>
+                <div class="order-details"><h4>Bàn ${o.tableId} - ${o.id}</h4></div>
                 <div class="order-meta">${new Date(o.timestamp).toLocaleTimeString('vi-VN')} - ${o.status}</div>
                 <ul class="order-items-list">${o.items.map(i => `<li><span>${i.qty}x ${i.name} (${i.size})</span> <span>${formatCurrency(i.price * i.qty)}</span></li>`).join('')}</ul>
             </div>
@@ -401,14 +401,13 @@ async function updateOrderStatus(orderId, newStatus) {
     if(error) return showToast('Cập nhật thất bại!', 'error');
     showToast('Đã cập nhật!');
 }
-function getStatusLabel(status) { return status; } // Supabase lưu thẳng chuỗi, nên trả về luôn
 
 // --- 8. MANAGER LOGIC ---
 async function renderManagerView() {
     // Inventory
     const tbody = document.getElementById('inventory-table-body');
     tbody.innerHTML = products.map(p => `
-        <tr><td><img src="${p.img || 'https://via.placeholder.com/40'}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;"></td><td>${p.name}</td><td>${p.type}</td><td>${formatShortPrice(p.price_m)}</td><td>${p.price_l ? formatShortPrice(p.price_l) : '-'}</td><td><button class="btn btn-danger" style="font-size:0.7rem; padding:4px 8px;" onclick="deleteProduct(${p.id})">Xóa</button></td></tr>
+        <tr><td><img src="${p.img || 'https://via.placeholder.com/40'}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;"></td><td>${p.name}</td><td>${p.type}</td><td>${formatShortPrice(p.priceM)}</td><td>${p.priceL ? formatShortPrice(p.priceL) : '-'}</td><td><button class="btn btn-danger" style="font-size:0.7rem; padding:4px 8px;" onclick="deleteProduct(${p.id})">Xóa</button></td></tr>
     `).join('');
     // Users
     const userBody = document.getElementById('users-table-body');
@@ -434,7 +433,7 @@ async function renderManagerView() {
     const logBody = document.getElementById('all-orders-log');
     if(logBody) {
         logBody.innerHTML = orders.length === 0 ? '<tr><td colspan="5">Chưa có data.</td></tr>'
-        : orders.map(o => `<tr><td>${o.id}</td><td>Bàn ${o.table_id}</td><td>${formatCurrency(o.total)}</td><td><span class="role-badge" style="font-size:0.7rem; background:${getStatusColor(o.status)}">${o.status}</span></td><td>${new Date(o.timestamp).toLocaleTimeString()}</td></tr>`).join('');
+        : orders.map(o => `<tr><td>${o.id}</td><td>Bàn ${o.tableId}</td><td>${formatCurrency(o.total)}</td><td><span class="role-badge" style="font-size:0.7rem; background:${getStatusColor(o.status)}">${o.status}</span></td><td>${new Date(o.timestamp).toLocaleTimeString()}</td></tr>`).join('');
     }
 }
 function getStatusColor(status) { const colors = { 'new': '#17a2b8', 'confirmed': '#ffc107', 'making': '#fd7e14', 'ready': '#28a745', 'served': '#6f42c1', 'paid': '#28a745' }; return colors[status] || '#6c757d'; }
@@ -471,7 +470,7 @@ async function saveNewProduct() {
     const priceL = parseInt(document.getElementById('new-prod-price-l').value) || 0;
     const img = document.getElementById('new-prod-img').value;
     if(!name || !priceM) return showToast('Thiếu tên/giá!', 'error');
-    const { error } = await supabase.from('products').insert({ name, type, price_m: priceM, price_l: priceL, img });
+    const { error } = await supabase.from('products').insert({ name, type, priceM, priceL, img });
     if(error) return showToast('Lỗi thêm món!', 'error');
     showToast('Đã thêm!'); closeModal('modal-add-product'); renderManagerView(); document.getElementById('new-prod-name').value = ''; document.getElementById('new-prod-price-m').value = '';
 }
