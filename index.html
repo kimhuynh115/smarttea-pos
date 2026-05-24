@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartTea POS System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* --- CSS --- */
+        :root {
+            --primary: #8B4513; 
+            --secondary: #A0522D;
+            --accent: #FF7F50;
+            --bg-light: #FFF8F0;
+            --text-dark: #333;
+            --success: #28a745;
+            --danger: #dc3545;
+            --info: #17a2b8;
+            --warning: #ffc107;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --radius: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg-light); color: var(--text-dark); padding-bottom: 60px; }
+
+        .hidden { display: none !important; }
+        .btn { padding: 8px 16px; border: none; border-radius: var(--radius); cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 0.9rem;}
+        .btn-primary { background-color: var(--primary); color: #fff; }
+        .btn-primary:hover { background-color: var(--secondary); }
+        .btn-success { background-color: var(--success); color: #fff; }
+        .btn-danger { background-color: var(--danger); color: #fff; }
+        .btn-info { background-color: var(--info); color: #fff; }
+        .btn-warning { background-color: var(--warning); color: #000; }
+        
+        .card { background: white; padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; }
+        
+        /* --- LOGIN PAGE --- */
+        #login-view {
+            display: flex; height: 100vh; justify-content: center; align-items: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        .login-box {
+            background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%; max-width: 400px; text-align: center;
+        }
+        .login-box input {
+            width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: var(--radius);
+        }
+        .login-logo { font-size: 3rem; color: var(--primary); margin-bottom: 10px; }
+
+        /* --- HEADER --- */
+        header { background: var(--primary); color: white; padding: 10px 20px; position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .role-badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; }
+
+        /* --- LAYOUTS --- */
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
+        
+        /* --- ROLE TABS --- */
+        .role-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .tab-btn { background: transparent; color: #666; border: 1px solid transparent; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .tab-btn:hover { background: #eee; color: var(--primary); }
+        .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        /* --- CUSTOMER MENU --- */
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .product-card { background: white; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; border: 1px solid #eee; }
+        .product-img { width: 100%; height: 140px; object-fit: cover; background: #eee; }
+        .product-info { padding: 12px; flex: 1; display: flex; flex-direction: column; }
+        .product-title { font-weight: bold; margin-bottom: 5px; font-size: 1rem; line-height: 1.2; height: 2.4em; overflow: hidden; }
+        .size-selector { display: flex; gap: 8px; margin-bottom: 10px; }
+        .size-btn { flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; text-align: center; font-size: 0.9rem; background: #fff; }
+        .size-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .product-price { color: var(--danger); font-weight: bold; margin-bottom: 10px; font-size: 1.1rem; }
+        .add-btn { margin-top: auto; width: 100%; padding: 8px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
+        .cart-float { position: fixed; bottom: 20px; right: 20px; background: var(--primary); color: white; padding: 15px 25px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; z-index: 900; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        
+        /* --- STAFF VIEWS --- */
+        .order-list { display: flex; flex-direction: column; gap: 15px; }
+        .order-item { background: white; padding: 15px; border-radius: var(--radius); border-left: 5px solid #ddd; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+        .order-item.status-new { border-left-color: var(--info); } 
+        .order-item.status-making { border-left-color: var(--warning); } 
+        .order-item.status-ready { border-left-color: var(--success); } 
+        .order-item.status-paid { border-left-color: #6c757d; opacity: 0.8; }
+        .order-item.history-item { border-left-color: #aaa; opacity: 0.8; }
+        
+        .order-content { flex: 1; min-width: 250px; }
+        .order-details h4 { margin-bottom: 5px; color: var(--secondary); font-size: 1.1rem; }
+        .order-meta { font-size: 0.85rem; color: #666; margin-bottom: 8px; background: #f9f9f9; display: inline-block; padding: 2px 8px; border-radius: 4px; }
+        .order-items-list { list-style: none; margin-bottom: 10px; }
+        .order-items-list li { font-size: 0.95rem; border-bottom: 1px dashed #eee; padding: 4px 0; display: flex; justify-content: space-between; }
+
+        /* --- ADMIN TABLE --- */
+        .admin-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        .admin-table th, .admin-table td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .admin-table th { background-color: #f8f9fa; font-weight: bold; }
+        
+        /* --- ANALYTICS CHARTS --- */
+        .chart-container { display: flex; align-items: flex-end; gap: 5px; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: var(--radius); margin-top: 10px; overflow-x: auto; }
+        .bar { min-width: 30px; background: var(--primary); text-align: center; color: white; font-size: 0.7rem; border-radius: 4px 4px 0 0; transition: height 0.5s; position: relative; display: flex; flex-direction: column; justify-content: flex-end; }
+        .bar:hover { opacity: 0.8; }
+        .bar-label { margin-top: 5px; color: #333; font-weight: bold; font-size: 0.7rem; }
+        .bar-val { margin-bottom: 5px; font-weight: bold; font-size: 0.8rem; }
+
+        /* --- QR & TABLES --- */
+        .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .table-qr-card { background: white; padding: 15px; border-radius: var(--radius); text-align: center; border: 1px solid #ddd; }
+        .qr-placeholder { width: 120px; height: 120px; background: #eee; margin: 10px auto; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #999; }
+
+        /* --- MODAL --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: var(--radius); width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .close-modal { font-size: 1.5rem; cursor: pointer; color: #999; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .form-group input:read-only { background-color: #eee; cursor: not-allowed; }
+
+        /* --- TOAST --- */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 3000; }
+        .toast { background: #333; color: white; padding: 12px 24px; border-radius: 4px; margin-bottom: 10px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN VIEW -->
+    <div id="login-view">
+        <div class="login-box">
+            <div class="login-logo"><i class="fas fa-mug-hot"></i></div>
+            <h2>SmartTea POS</h2>
+            <p style="margin-bottom: 20px; color: #666;">Đăng nhập hệ thống</p>
+            <input type="text" id="login-username" placeholder="Tên đăng nhập">
+            <input type="password" id="login-password" placeholder="Mật khẩu">
+            <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="handleLogin()">Đăng Nhập</button>
+            <p style="margin-top:15px; font-size:0.8rem; color:#888;">
+                Mặc định Admin: admin / 123456<br>
+                Khách hàng: customer / (bất kỳ)
+            </p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-view" class="hidden">
+        <header>
+            <div class="logo" style="font-size:1.2rem; font-weight:bold;"><i class="fas fa-coffee"></i> SmartTea</div>
+            <div class="user-info">
+                <span id="user-display-name" style="font-weight:bold;"></span>
+                <span class="role-badge" id="user-role-display"></span>
+                <button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="logout()">Thoát</button>
+            </div>
+        </header>
+
+        <div id="toast-container"></div>
+
+        <main class="container">
+            
+            <!-- === CUSTOMER VIEW === -->
+            <section id="view-customer" class="hidden">
+                <div id="customer-step-1" class="card">
+                    <h3><i class="fas fa-qrcode"></i> Mời Quét Mã QR</h3>
+                    <p style="margin-bottom:15px;">Tại quán: Hãy quét mã QR trên bàn để đặt món.</p>
+                    <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <p><strong>Dành cho Demo:</strong> Chọn số bàn bên dưới để giả lập việc quét QR.</p>
+                    </div>
+                    <div class="qr-grid" id="table-grid-qr-sim"></div>
+                </div>
+
+                <div id="customer-step-2" class="hidden">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h2 id="customer-greeting">Menu</h2>
+                        <button class="btn btn-danger" style="font-size:0.8rem" onclick="resetTable()">Quét lại QR</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="filterMenu('all')">Tất cả</button>
+                        <button class="btn btn-info" onclick="filterMenu('tea')">Trà sữa</button>
+                        <button class="btn btn-info" onclick="filterMenu('coffee')">Cafe</button>
+                        <button class="btn btn-info" onclick="filterMenu('drink')">Nước ngọt</button>
+                    </div>
+
+                    <div class="menu-grid" id="menu-container"></div>
+                </div>
+
+                <div id="cart-btn" class="cart-float hidden" onclick="openCart()">
+                    <i class="fas fa-shopping-cart"></i> <span id="cart-count">0</span> món - <span id="cart-total">0 đ</span>
+                </div>
+            </section>
+
+            <!-- === WAITER === -->
+            <section id="view-waiter" class="hidden">
+                <div class="role-tabs">
+                    <button class="tab-btn active" id="tab-waiter-current" onclick="switchRoleTab('waiter', 'current')">Đang chờ xử lý</button>
+                    <button class="tab-btn" id="tab-waiter-history" onclick="switchRoleTab('waiter', 'history')">Lịch sử phục vụ</button>
+                </div>
+                <div id="waiter-list-current" class="order-list"></div>
+                <div id="waiter-list-history" class="order-list hidden"></div>
+            </section>
+
+            <!-- === BARISTA === -->
+            <section id="view-barista" class="hidden">
+                <div class="role-tabs">
+                    <button class="tab-btn active" id="tab-barista-current" onclick="switchRoleTab('barista', 'current')">Đang pha chế</button>
+                    <button class="tab-btn" id="tab-barista-history" onclick="switchRoleTab('barista', 'history')">Lịch sử pha chế</button>
+                </div>
+                <div id="barista-list-current" class="order-list"></div>
+                <div id="barista-list-history" class="order-list hidden"></div>
+            </section>
+
+            <!-- === CASHIER === -->
+            <section id="view-cashier" class="hidden">
+                <div class="role-tabs">
+                    <button class="tab-btn active" id="tab-cashier-current" onclick="switchRoleTab('cashier', 'current')">Chờ thanh toán</button>
+                    <button class="tab-btn" id="tab-cashier-history" onclick="switchRoleTab('cashier', 'history')">Lịch sử thu ngân</button>
+                </div>
+                <div id="cashier-list-current" class="order-list"></div>
+                <div id="cashier-list-history" class="order-list hidden"></div>
+            </section>
+
+            <!-- === MANAGER VIEW === -->
+            <section id="view-manager" class="hidden">
+                <h3><i class="fas fa-chart-pie"></i> Quản Lý (Giám Đốc)</h3>
+                
+                <div style="margin: 20px 0; display:flex; gap:10px; flex-wrap:wrap; border-bottom: 2px solid #eee; padding-bottom:10px;">
+                    <button class="btn btn-primary" onclick="toggleManagerTab('inventory')">1. Sản Phẩm</button>
+                    <button class="btn btn-info" onclick="toggleManagerTab('tables')">2. Quản Lý Bàn & QR</button>
+                    <button class="btn btn-info" onclick="toggleManagerTab('users')">3. Tài Khoản</button>
+                    <button class="btn btn-success" onclick="toggleManagerTab('analytics')">4. Thống Kê & Lịch Sử</button>
+                    <button class="btn btn-danger" onclick="resetAllData()" style="margin-left:auto;">Reset Dữ Liệu</button>
+                </div>
+
+                <!-- 1. Inventory -->
+                <div id="manager-inventory" class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h4>Danh sách sản phẩm</h4>
+                        <button class="btn btn-success" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Thêm món mới</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Ảnh</th>
+                                    <th>Tên món</th>
+                                    <th>Loại</th>
+                                    <th>Giá M</th>
+                                    <th>Giá L</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. Tables & QR -->
+                <div id="manager-tables" class="card hidden">
+                    <h4>Quản lý Bàn và Mã QR</h4>
+                    <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">Bấm vào "Xem QR" để lấy mã dán tại bàn.</p>
+                    <div class="qr-grid" id="admin-table-qr-grid"></div>
+                </div>
+
+                <!-- 3. Users -->
+                <div id="manager-users" class="card hidden">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h4>Danh sách nhân viên</h4>
+                        <button class="btn btn-success" onclick="openAddUserModal()"><i class="fas fa-user-plus"></i> Tạo tài khoản</button>
+                    </div>
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Tên đăng nhập</th>
+                                <th>Vai trò</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- 4. Analytics & History -->
+                <div id="manager-analytics" class="card hidden">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom:20px;">
+                        <div style="background:#f9f9f9; padding:15px; border-radius:8px; text-align:center;">
+                            <h5>Doanh Thu Hôm Nay</h5>
+                            <h2 id="stat-revenue-today" style="color:var(--success);">0 đ</h2>
+                        </div>
+                        <div style="background:#f9f9f9; padding:15px; border-radius:8px; text-align:center;">
+                            <h5>Tổng Đơn Hàng (Đã TT)</h5>
+                            <h2 id="stat-orders-count">0</h2>
+                        </div>
+                    </div>
+
+                    <h5>Biểu đồ doanh thu theo Giờ</h5>
+                    <div class="chart-container" id="revenue-chart"></div>
+
+                    <h5 style="margin-top:20px;">Doanh thu theo Loại Sản Phẩm</h5>
+                    <ul id="category-stats" style="list-style:none; margin-top:10px; padding-left:0;"></ul>
+
+                    <hr style="margin:20px 0;">
+                    <h5><i class="fas fa-history"></i> Lịch sử đơn hàng (Toàn bộ)</h5>
+                    <div style="max-height: 400px; overflow-y: auto; border:1px solid #eee; padding:10px;">
+                        <table class="admin-table">
+                            <thead><tr><th>Mã Đơn</th><th>Bàn</th><th>Tổng tiền</th><th>Trạng thái</th><th>Giờ</th></tr></thead>
+                            <tbody id="all-orders-log"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- === MODALS === -->
+    <div id="modal-cart" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Giỏ hàng</h3>
+                <span class="close-modal" onclick="closeModal('modal-cart')">&times;</span>
+            </div>
+            <div id="cart-items-container"></div>
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; display:flex; justify-content:space-between; font-size:1.2rem; font-weight:bold;">
+                <span>Tổng cộng:</span>
+                <span style="color:var(--primary);" id="modal-cart-total">0 đ</span>
+            </div>
+            <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="submitOrder()">Đặt Món Ngay</button>
+        </div>
+    </div>
+
+    <div id="modal-add-product" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Thêm Sản Phẩm Mới</h3>
+                <span class="close-modal" onclick="closeModal('modal-add-product')">&times;</span>
+            </div>
+            <div class="form-group">
+                <label>Tên sản phẩm</label>
+                <input type="text" id="new-prod-name">
+            </div>
+            <div class="form-group">
+                <label>Phân loại</label>
+                <select id="new-prod-type">
+                    <option value="tea">Trà sữa</option>
+                    <option value="coffee">Cafe</option>
+                    <option value="drink">Nước ngọt</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                    <label>Giá Size M</label>
+                    <input type="number" id="new-prod-price-m">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>Giá Size L</label>
+                    <input type="number" id="new-prod-price-l">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Link Ảnh (URL)</label>
+                <input type="text" id="new-prod-img" placeholder="Để trống sẽ dùng ảnh ngẫu nhiên">
+            </div>
+            <button class="btn btn-success" style="width:100%;" onclick="saveNewProduct()">Lưu sản phẩm</button>
+        </div>
+    </div>
+
+    <div id="modal-add-user" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="user-modal-title">Tạo Tài Khoản Nhân Viên</h3>
+                <span class="close-modal" onclick="closeModal('modal-add-user')">&times;</span>
+            </div>
+            <input type="hidden" id="edit-user-mode" value="create"> 
+            <div class="form-group">
+                <label>Tên đăng nhập</label>
+                <input type="text" id="new-user-name">
+                <small style="color: #888;" id="user-readonly-hint">Không thể đổi tên khi sửa.</small>
+            </div>
+            <div class="form-group">
+                <label>Mật khẩu</label>
+                <input type="text" id="new-user-pass">
+            </div>
+            <div class="form-group">
+                <label>Vai trò</label>
+                <select id="new-user-role">
+                    <option value="waiter">Phục vụ</option>
+                    <option value="barista">Pha chế</option>
+                    <option value="cashier">Thu ngân</option>
+                    <option value="manager">Giám đốc</option>
+                </select>
+            </div>
+            <button class="btn btn-success" style="width:100%;" onclick="saveUser()">Lưu tài khoản</button>
+        </div>
+    </div>
+
+    <div id="modal-show-qr" class="modal-overlay hidden">
+        <div class="modal-content" style="text-align:center;">
+            <div class="modal-header">
+                <h3 id="qr-modal-title">QR Code Bàn X</h3>
+                <span class="close-modal" onclick="closeModal('modal-show-qr')">&times;</span>
+            </div>
+            <img id="qr-image-display" src="" alt="QR Code" style="width:200px; height:200px; margin-bottom:15px; border:1px solid #ddd;">
+            <p style="font-size:0.9rem; color:#666;">In mã này ra và dán tại bàn.</p>
+            <button class="btn btn-info" style="margin-top:10px;" onclick="closeModal('modal-show-qr')">Đóng</button>
+        </div>
+    </div>
+
+    <!-- QUAN TRỌNG: 2 DÒNG NÀY PHẢI NẰM Ở CUỐI FILE -->
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
